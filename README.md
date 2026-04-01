@@ -2,8 +2,7 @@
 # 🤖 2026 ILRC 물류로봇 경진대회 — 물류로봇1 (이동)
 
 > **ILRC (International Logistics Robot Competition)**  
-> ATmega 기반 물류로봇으로 팔렛을 자율 운반하는 경진대회 참가 레포지토리입니다.
-
+> 
 ---
 
 ## 📁 파일 구성
