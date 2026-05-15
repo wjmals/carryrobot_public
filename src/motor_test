@@ -9,37 +9,19 @@ const int IN4 = 4;
 const int ENB = 6;  // PWM
 
 const int LEFT_SPEED  = 180;
-const int RIGHT_SPEED = 175;  
-void forward(int leftSpd, int rightSpd) {
-
-  // 왼쪽 정방향
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  analogWrite(ENA, leftSpd);
-
-  // 오른쪽 정방향
-  digitalWrite(IN3, HIGH);                  
-  digitalWrite(IN4, LOW);
-  analogWrite(ENB, rightSpd);
-}
-
-void stopMotor() {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  analogWrite(ENA, 0);
-
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  analogWrite(ENB, 0);
-}
+const int RIGHT_SPEED = 175;
 
 void setup() {
   pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT); pinMode(ENA, OUTPUT);
   pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT); pinMode(ENB, OUTPUT);
-  Serial.begin(9600);
+
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  analogWrite(ENA, LEFT_SPEED);
+
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENB, RIGHT_SPEED);
 }
 
 void loop() {
-  forward(LEFT_SPEED, RIGHT_SPEED);
-  delay(9000000000000);
+  
 }
