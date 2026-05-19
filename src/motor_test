@@ -8,8 +8,8 @@ const int IN3 = 5;
 const int IN4 = 4;
 const int ENB = 6;  // PWM
 
-const int LEFT_SPEED  = 180;
-const int RIGHT_SPEED = 175;
+const int LEFT_SPEED  = 3;
+const int RIGHT_SPEED = 12;
 
 void setup() {
   pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT); pinMode(ENA, OUTPUT);
