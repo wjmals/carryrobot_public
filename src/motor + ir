@@ -1,0 +1,53 @@
+// ── 모터 핀 ──────────────────────────
+const int IN1 = 8, IN2 = 7, ENA = 3;   // 왼쪽 (PWM: 3)
+const int IN3 = 5, IN4 = 4, ENB = 6;   // 오른쪽 (PWM: 6)
+
+const int LEFT_SPEED  = 180;
+const int RIGHT_SPEED = 175;
+
+// ── IR 센서 핀 ────────────────────────
+const int sensorPin = A0;
+const int THRESHOLD = 500;  // 이 값보다 작으면 흰색, 크면 검은색
+
+// ── 모터 제어 함수 ────────────────────
+void moveForward() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, LEFT_SPEED);
+  analogWrite(ENB, RIGHT_SPEED);
+}
+
+void stopMotors() {
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+// ── setup ─────────────────────────────
+void setup() {
+  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT); pinMode(ENA, OUTPUT);
+  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT); pinMode(ENB, OUTPUT);
+
+  Serial.begin(9600);
+  Serial.println("Start...");
+}
+
+// ── loop ──────────────────────────────
+void loop() {
+  int sensorValue = analogRead(sensorPin);
+
+  Serial.print("Sensor: ");
+  Serial.print(sensorValue);
+
+  if (sensorValue < THRESHOLD) {
+    // 흰색 감지 → 전진
+    Serial.println("  → 흰색: 전진");
+    moveForward();
+  } else {
+    // 검은색 감지 → 정지
+    Serial.println("  → 검은색: 정지");
+    stopMotors();
+  }
+
+  delay(100);
+}
+ 
