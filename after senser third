@@ -1,0 +1,106 @@
+const int leftSensorPin = A0;
+const int rightSensorPin = A1;
+
+const int threshold = 500;
+
+// 왼쪽 모터
+const int MOTOR_LEFT_IA = 6;
+const int MOTOR_LEFT_IB = 5;
+
+// 오른쪽 모터
+const int MOTOR_RIGHT_IA = 9;
+const int MOTOR_RIGHT_IB = 10;
+
+// ===== 바퀴별 속도 설정 =====
+int leftForwardSpeed  = 250;
+int rightForwardSpeed = 95;
+
+int leftTurnSpeed  = 180;
+int rightTurnSpeed = 180;
+
+void setup() {
+
+  Serial.begin(9600);
+
+  pinMode(MOTOR_LEFT_IA, OUTPUT);
+  pinMode(MOTOR_LEFT_IB, OUTPUT);
+
+  pinMode(MOTOR_RIGHT_IA, OUTPUT);
+  pinMode(MOTOR_RIGHT_IB, OUTPUT);
+}
+
+void loop() {
+
+  int leftValue = analogRead(leftSensorPin);
+  int rightValue = analogRead(rightSensorPin);
+
+  Serial.print("L: ");
+  Serial.print(leftValue);
+
+  Serial.print(" | R: ");
+  Serial.print(rightValue);
+
+  Serial.print(" -> ");
+
+  // =====================
+  // 직진
+  // =====================
+  if (leftValue < threshold && rightValue < threshold) {
+
+    Serial.println("FORWARD");
+
+    analogWrite(MOTOR_LEFT_IA, leftForwardSpeed);
+    analogWrite(MOTOR_LEFT_IB, 0);
+
+    analogWrite(MOTOR_RIGHT_IA, rightForwardSpeed);
+    analogWrite(MOTOR_RIGHT_IB, 0);
+  }
+
+  // =====================
+  // 좌회전
+  // =====================
+  else if (leftValue >= threshold && rightValue < threshold) {
+
+    Serial.println("LEFT");
+
+    // 왼쪽 바퀴 느리게
+    analogWrite(MOTOR_LEFT_IA, 80);
+    analogWrite(MOTOR_LEFT_IB, 0);
+
+    // 오른쪽 바퀴 빠르게
+    analogWrite(MOTOR_RIGHT_IA, rightTurnSpeed);
+    analogWrite(MOTOR_RIGHT_IB, 0);
+  }
+
+  // =====================
+  // 우회전
+  // =====================
+  else if (leftValue < threshold && rightValue >= threshold) {
+
+    Serial.println("RIGHT");
+
+    // 왼쪽 바퀴 빠르게
+    analogWrite(MOTOR_LEFT_IA, leftTurnSpeed);
+    analogWrite(MOTOR_LEFT_IB, 0);
+
+    // 오른쪽 바퀴 느리게
+    analogWrite(MOTOR_RIGHT_IA, 80);
+    analogWrite(MOTOR_RIGHT_IB, 0);
+  }
+
+  // =====================
+  // 정지
+  // =====================
+  else {
+
+    Serial.println("STOP");
+
+    analogWrite(MOTOR_LEFT_IA, 0);
+    analogWrite(MOTOR_LEFT_IB, 0);
+
+    analogWrite(MOTOR_RIGHT_IA, 0);
+    analogWrite(MOTOR_RIGHT_IB, 0);
+  }
+
+  delay(20);
+}
