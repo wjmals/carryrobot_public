@@ -1,0 +1,110 @@
+
+// ── 모터 핀 ──────────────────────────
+const int IN1 = 8, IN2 = 5, ENA = 3;
+const int IN3 = 7, IN4 = 4, ENB = 6;
+
+const int LEFT_SPEED  = 200;
+const int RIGHT_SPEED = 1;
+
+// ── IR 센서 핀 ────────────────────────
+const int sensorLeft  = A1;
+const int sensorRight = A0;
+const int THRESHOLD   = 500;
+
+// ── 시작 플래그 ───────────────────────
+bool started = false;  // ← 추가
+
+// ── 모터 제어 함수 ────────────────────
+void moveForward() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, LEFT_SPEED);
+  analogWrite(ENB, RIGHT_SPEED);
+}
+
+void moveBackward() {
+  digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);  digitalWrite(IN4, HIGH);
+  analogWrite(ENA, LEFT_SPEED);
+  analogWrite(ENB, RIGHT_SPEED);
+}
+
+void turnRight() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);  digitalWrite(IN4, LOW);
+  analogWrite(ENA, LEFT_SPEED);
+  analogWrite(ENB, 0);
+}
+
+void turnLeft() {
+  digitalWrite(IN1, LOW);  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, RIGHT_SPEED);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+// ── setup / loop ──────────────────────
+
+void setup() {
+  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT); pinMode(ENA, OUTPUT);
+  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT); pinMode(ENB, OUTPUT);
+  Serial.begin(9600);
+  Serial.println("'출발' 을 입력하면 시작합니다.");  // ← 추가
+}
+
+void loop() {
+  // ── 시리얼 입력 처리 ─────────────────
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();  // 앞뒤 공백·개행 제거
+    if (input == "출발") {
+      started = true;
+      Serial.println("출발!");
+    }else if (input == "정지") {  // ← 추가
+  started = false;
+  Serial.println("정지!");
+  stopMotors();
+}
+  }
+
+  // 출발 전이면 대기
+  if (!started) {
+    stopMotors();
+    return;
+  }
+
+  // ── 라인트레이서 본 로직 ──────────────
+  int leftVal  = analogRead(sensorLeft);
+  int rightVal = analogRead(sensorRight);
+
+  bool leftBlack  = (leftVal  < THRESHOLD);
+  bool rightBlack = (rightVal < THRESHOLD);
+
+  Serial.print("L: "); Serial.print(leftVal);
+  Serial.print(leftBlack ? " (검은색)" : " (흰색)");
+  Serial.print("  R: "); Serial.print(rightVal);
+  Serial.println(rightBlack ? " (검은색)" : " (흰색)");
+
+  if (leftBlack && rightBlack) {
+    Serial.println("→ 직진");
+    moveForward();
+  } else if (!leftBlack && rightBlack) {
+    Serial.println("→ 우회전");
+    turnRight();
+  } else if (leftBlack && !rightBlack) {
+    Serial.println("→ 좌회전");
+    turnLeft();
+  } else {
+    Serial.println("→ 정지");
+    stopMotors();
+  }
+
+  delay(100);
+}
