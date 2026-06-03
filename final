@@ -1,0 +1,220 @@
+	#include <MFRC522.h>
+#include <MFRC522Extended.h>
+#include <require_cpp11.h>
+#include <SPI.h>
+#include <Servo.h> 
+
+// RFID 핀 설정
+#define RFID_SS_PIN     2 
+#define RFID_RST_PIN    4 
+MFRC522 mfrc522( RFID_SS_PIN, RFID_RST_PIN );
+
+// 부저 및 버튼 핀 설정
+#define pinBuzzer    3  
+#define pinButton    A3 
+
+// 리프터 서보모터 설정
+#define SERVO_DOWN  90-10   
+#define SERVO_UP    180-10  
+#define SERVO_DEF   SERVO_DOWN   
+#define pinServo   9   
+Servo servo;   
+
+// 주행용 IR 센서 (라인트레이싱)
+#define pinLT1  A6 
+#define pinLT2  A7 
+
+#define LT_AJDUST       60  
+#define LT_MAX_WHITE   410 + LT_AJDUST 
+#define LT_MID_VALUE   560 + LT_AJDUST 
+#define LT_MIN_BLACK   710 + LT_AJDUST 
+
+// 모터 드라이브 핀 설정
+#define pinDIR1   7 
+#define pinPWM1   5 
+#define pinDIR2   8 
+#define pinPWM2   6 
+
+#define FORWARD   0 
+#define BACKWARD  1 
+
+// 속도 및 라인 스킵 타임 설정
+#define TURN_POWER  100 
+int Power = 80;  
+int SkipLineTime = 200; 
+
+// =================================================================
+// ⭐ [경로 설정 배열] 이곳만 수정하면 주행 경로가 바뀝니다!
+// l = 좌회전, r = 우회전, s = 직진(교차로 패스)
+// U = 상차(리프터 상승+RFID대기), D = 하차(리프터 하강+RFID대기+종료)
+// =================================================================
+char path[] = "lsssrssUsrssssssslsssD"; 
+int pathIndex = 0;       // 현재 수행 중인 경로의 위치
+bool isRunning = false;  // 로봇 주행 활성화 플래그
+
+void  LifterUp() {
+  servo.attach( pinServo ); delay( 10 );
+  servo.write( SERVO_UP ); delay( 300 );
+  servo.detach(); delay( 10 );  
+}
+
+void  LifterDown() {
+  servo.attach( pinServo ); delay( 10 );
+  servo.write( SERVO_DOWN ); delay( 300 );
+  servo.detach(); delay( 10 );  
+}
+
+void  drive(int dir1, int power1, int dir2, int power2) {
+  boolean dirHighLow1, dirHighLow2;
+  if(dir1 == FORWARD)  dirHighLow1 = HIGH;
+  else                 dirHighLow1 = LOW;
+  if(dir2 == FORWARD)  dirHighLow2 = LOW;
+  else                 dirHighLow2 = HIGH;
+
+  digitalWrite(pinDIR1, dirHighLow1);
+  analogWrite(pinPWM1, power1);
+  digitalWrite(pinDIR2, dirHighLow2);
+  analogWrite(pinPWM2, power2);
+}
+
+void  Forward( int power )   { drive(FORWARD, power, FORWARD, power); }
+void  Backward( int power )  { drive(BACKWARD, power, BACKWARD, power); }
+void  TurnLeft( int power )   { drive(BACKWARD, power, FORWARD, power); }
+void  TurnRight( int power )  { drive(FORWARD, power, BACKWARD, power); }
+void Stop() { analogWrite(pinPWM1, 0); analogWrite(pinPWM2, 0); }
+
+void  TurnLeft90() {
+  Stop(); delay( 50 );
+  drive(BACKWARD, 80, BACKWARD, 80); delay( 20 ); Stop(); delay( 50 );
+  TurnLeft( TURN_POWER );
+  while( analogRead(pinLT1) < LT_MAX_WHITE ) delay( 1 );
+  delay( 40 );
+  while( analogRead(pinLT1) > LT_MIN_BLACK ) delay( 1 );
+  delay( 40 );
+  Forward( TURN_POWER ); delay( 90 );
+  TurnLeft( TURN_POWER ); delay( 250 );
+  Forward( Power );
+}
+
+void  TurnRight90() {
+  Stop(); delay( 50 );
+  drive(BACKWARD, 80, BACKWARD, 80); delay( 20 ); Stop(); delay( 50 );
+  TurnRight( TURN_POWER );
+  while( analogRead(pinLT2) < LT_MAX_WHITE ) delay( 1 );
+  delay( 40 );
+  while( analogRead(pinLT2) > LT_MIN_BLACK ) delay( 1 );
+  delay( 40 );
+  Forward( TURN_POWER ); delay( 90 );
+  TurnRight( TURN_POWER ); delay( 250 );
+  Forward( Power );
+}
+
+// 상차/하차 후 RFID 카드 인식을 대기하는 함수
+void WaitForRFID() {
+  tone(pinBuzzer, 440); delay(100); noTone(pinBuzzer); 
+  while (true) {
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PIRC_ReadCardSerial()) {
+      tone(pinBuzzer, 523); delay(100);
+      tone(pinBuzzer, 659); delay(150); noTone(pinBuzzer);
+      break; 
+    }
+    delay(100);
+  }
+}
+
+void DoLineTracing() {
+  int v1 = analogRead( pinLT1 );
+  int v2 = analogRead( pinLT2 );
+
+  // 양쪽 IR 센서가 정지선/교차로를 감지했을 때 실행
+  if( (LT_MIN_BLACK < v1) && (LT_MIN_BLACK < v2) ) { 
+    if (!isRunning) return;
+
+    // 현재 인덱스의 명령 문자 가져오기
+    char currentCmd = path[pathIndex];
+
+    switch( currentCmd ) {
+      case 'l': // 좌회전
+        TurnLeft90(); 
+        pathIndex++;
+        break;
+        
+      case 'r': // 우회전
+        TurnRight90(); 
+        pathIndex++;
+        break;
+        
+      case 's': // 직진 (현재 선 스킵)
+        Forward(Power); 
+        delay(SkipLineTime); 
+        pathIndex++;
+        break;
+        
+      case 'U': // ★ 상차 (Up) 후 우회전 동작 연계
+        Stop(); 
+        LifterUp(); 
+        delay(1000);
+        WaitForRFID(); // 상차 카드 대기
+        
+        TurnRight90(); // 상차 후 바로 우회전 조치
+        Forward(Power); 
+        delay(600);    // 방금 서 있던 선 확실하게 탈출
+        
+        pathIndex++;   // 다음 명령으로
+        break;
+        
+      case 'D': // ★ 하차 (Down) 및 최종 종료
+        Stop(); 
+        LifterDown(); 
+        delay(1000);
+        WaitForRFID(); // 하차 카드 대기
+        
+        // 피날레 멜로디
+        tone( pinBuzzer, 330 ); delay( 100 );
+        tone( pinBuzzer, 392 ); delay( 100 );
+        tone( pinBuzzer, 523 ); delay( 500 ); noTone( pinBuzzer );
+        
+        // 초기화
+        isRunning = false;
+        pathIndex = 0; 
+        break;
+        
+      default: // 배열의 끝을 만나거나 잘못된 문자가 있을 때 안전을 위해 정지
+        Stop();
+        isRunning = false;
+        pathIndex = 0;
+        break;
+    }
+  }
+  // 기본 주행 라인트레이싱 규칙
+  else if( v1 > LT_MIN_BLACK )  { TurnLeft( Power ); }
+  else if( v2 > LT_MIN_BLACK )  { TurnRight( Power ); }
+  else                          { Forward( Power ); }
+}
+
+void setup() {  
+  pinMode( pinDIR1, OUTPUT ); pinMode( pinPWM1, OUTPUT );
+  pinMode( pinDIR2, OUTPUT ); pinMode( pinPWM2, OUTPUT );
+  pinMode( pinBuzzer, OUTPUT ); noTone( pinBuzzer );  
+  
+  Serial.begin( 9600 ); 
+  LifterDown(); 
+  
+  SPI.begin(); 
+  mfrc522.PCD_Init(); 
+}
+
+void loop() {
+  if (!isRunning) {
+    // 스타트 라인 카드 인식 대기
+    if( mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial() ) { 
+      isRunning = true; 
+      pathIndex = 0; // 경로 처음부터 시작
+      tone( pinBuzzer, 262 ); delay( 100 );
+      tone( pinBuzzer, 330 ); delay( 250 ); noTone( pinBuzzer );
+    }
+    delay( 100 );  
+  } else {
+    DoLineTracing();  
+  }
+}
